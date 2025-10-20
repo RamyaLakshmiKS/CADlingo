@@ -34,6 +34,8 @@ data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+data/outputs/*
+!data/outputs/.gitkeep
 
 # Results (ignore contents, keep placeholders)
 results/*
@@ -43,15 +45,22 @@ results/plots/*
 results/samples/*
 !results/samples/.gitkeep
 
-# File types to ignore globally
-*.pkl
-*.pickle
-*.csv
-*.dxf
-*.dwg
-*.png
-*.jpg
-*.pdf
+# File types to ignore within data/ and results/ only
+data/**/*.pkl
+data/**/*.pickle
+data/**/*.csv
+data/**/*.dxf
+data/**/*.dwg
+data/**/*.png
+data/**/*.jpg
+
+results/**/*.pkl
+results/**/*.pickle
+results/**/*.csv
+results/**/*.dxf
+results/**/*.dwg
+results/**/*.png
+results/**/*.jpg
 
 # Environment
 .env
@@ -83,8 +92,5 @@ checkpoints/
 *.log
 logs/
 
-# UI/docs placeholders
-ui/*
-!ui/.gitkeep
-docs/*
-!docs/.gitkeep
+# Allow committing all docs and UI assets
+# (no ignore rules for docs/ and ui/ so they are tracked normally)
