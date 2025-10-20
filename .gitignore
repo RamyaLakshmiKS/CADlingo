@@ -27,17 +27,28 @@ wheels/
 .ipynb_checkpoints
 *.ipynb_checkpoints/
 
-# Data files
-data/raw/
-data/processed/
+# Data (ignore contents, keep placeholders)
+data/*
+!data/.gitkeep
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Results (ignore contents, keep placeholders)
+results/*
+!results/.gitkeep
+results/plots/*
+!results/plots/.gitkeep
+results/samples/*
+!results/samples/.gitkeep
+
+# File types to ignore globally
 *.pkl
 *.pickle
 *.csv
 *.dxf
 *.dwg
-
-# Results
-results/
 *.png
 *.jpg
 *.pdf
@@ -72,10 +83,8 @@ checkpoints/
 *.log
 logs/
 
-# Keep placeholder files so empty dirs are versioned
-!data/.gitkeep
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!results/.gitkeep
+# UI/docs placeholders
+ui/*
 !ui/.gitkeep
+docs/*
 !docs/.gitkeep
