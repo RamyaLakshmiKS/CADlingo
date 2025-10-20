@@ -63,8 +63,8 @@ results/**/*.png
 results/**/*.jpg
 
 # Environment
+cad-env/
 .env
-.venv
 *.env
 
 # IDE
