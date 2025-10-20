@@ -114,9 +114,9 @@ streamlit run app.py
 ```
 CADlingo/
 ├── data/
-│   ├── raw/                    # Raw RPLAN pickle files
-│   ├── processed/              # Generated training/validation/test splits
-│   └── outputs/                # Generated AutoCAD files
+│   ├── raw/                    # Raw datasets 
+│   ├── processed/              # Train/val/test splits
+│   └── outputs/                # Generated CAD files (intermediate)
 ├── src/
 │   ├── data/
 │   │   ├── downloader.py       # Dataset download script
@@ -126,7 +126,14 @@ CADlingo/
 │       ├── train.py            # Model training pipeline
 │       └── inference.py        # Generate AutoCAD code
 ├── notebooks/
-│   └── data_exploration.ipynb  # Dataset analysis
+│   └── setup.ipynb             # Setup & environment verification
+├── results/
+│   ├── plots/                  # Exploratory figures/visualizations
+│   └── samples/                # Sample outputs (LISP/DXF/PNG)
+├── ui/
+│   └── app.py                  # Streamlit app (coming soon)
+├── docs/
+│   └── SETUP_GUIDE.md          # Quick setup guide (coming soon)
 ├── requirements.txt            # Python dependencies
 └── README.md                   # This file
 ```

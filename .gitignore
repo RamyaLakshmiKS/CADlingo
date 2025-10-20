@@ -71,3 +71,11 @@ checkpoints/
 # Logs
 *.log
 logs/
+
+# Keep placeholder files so empty dirs are versioned
+!data/.gitkeep
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!results/.gitkeep
+!ui/.gitkeep
+!docs/.gitkeep
