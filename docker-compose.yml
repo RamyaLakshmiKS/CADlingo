@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # CADlingo Streamlit UI
+  cadlingo-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadlingo-ui
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - cadlingo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # CADlingo FastAPI Backend
+  cadlingo-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadlingo-api
+    command: ["python", "ui/api.py"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - cadlingo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  cadlingo-network:
+    driver: bridge
+
+volumes:
+  cadlingo-data:
+  cadlingo-results:

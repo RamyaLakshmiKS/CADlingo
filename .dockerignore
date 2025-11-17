@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+cad-env/
+*.egg-info/
+dist/
+build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# Data files (large)
+data/raw/pickle/*.pkl
+data/raw/*.zip
+data/raw/*.tar.gz
+
+# Model checkpoints (large)
+results/models/checkpoint_*
+*.pth
+*.bin
+*.ckpt
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Output files
+data/outputs/*
+!data/outputs/.gitkeep
+
+# Secrets
+.env
+*.key
+*.pem
+credentials.json

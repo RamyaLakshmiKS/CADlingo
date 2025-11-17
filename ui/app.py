@@ -25,6 +25,31 @@ sys.path.insert(0, str(project_root / 'src' / 'data'))
 
 from inference import CADGenerator
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
+
+# Add improvements module
+sys.path.insert(0, str(project_root / 'src' / 'improvements'))
+from improvement_modules import GeometricValidator, AutomatedEvaluator
+
+
+# Room type colors for better visualization
+ROOM_COLORS = {
+    'living_room': '#FFB6C1',      # Light pink
+    'bedroom': '#87CEEB',          # Sky blue
+    'master_bedroom': '#4682B4',   # Steel blue
+    'child_bedroom': '#ADD8E6',    # Light blue
+    'guest_bedroom': '#B0E0E6',    # Powder blue
+    'kitchen': '#FFD700',          # Gold
+    'dining_room': '#FFA07A',      # Light salmon
+    'bathroom': '#98FB98',         # Pale green
+    'balcony': '#F0E68C',          # Khaki
+    'storage': '#D3D3D3',          # Light gray
+    'hallway': '#DDA0DD',          # Plum
+    'laundry': '#F5DEB3',          # Wheat
+    'office': '#E6E6FA',           # Lavender
+    'default': '#DCDCDC'           # Gainsboro
+}
 
 
 # Page configuration
@@ -94,6 +119,121 @@ def get_download_link(file_path, link_text):
     return href
 
 
+def create_enhanced_visualization(code, output_file, figsize=(12, 10)):
+    """Create enhanced visualization with color-coded rooms and scale legend."""
+    import re
+    
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Parse rooms from code
+    rect_pattern = r'RECT\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+"([^"]+)"'
+    rooms = re.findall(rect_pattern, code)
+    
+    if not rooms:
+        ax.text(0.5, 0.5, 'No valid rooms found', ha='center', va='center', fontsize=14)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        plt.tight_layout()
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        plt.close()
+        return
+    
+    # Calculate bounds
+    all_x = []
+    all_y = []
+    for x, y, w, h, _ in rooms:
+        x, y, w, h = float(x), float(y), float(w), float(h)
+        all_x.extend([x, x + w])
+        all_y.extend([y, y + h])
+    
+    min_x, max_x = min(all_x), max(all_x)
+    min_y, max_y = min(all_y), max(all_y)
+    
+    # Add padding
+    padding = 2
+    ax.set_xlim(min_x - padding, max_x + padding)
+    ax.set_ylim(min_y - padding, max_y + padding)
+    
+    # Draw rooms with color coding
+    legend_elements = []
+    room_types_seen = set()
+    
+    for x, y, w, h, room_type in rooms:
+        x, y, w, h = float(x), float(y), float(w), float(h)
+        
+        # Get color for room type
+        color = ROOM_COLORS.get(room_type, ROOM_COLORS['default'])
+        
+        # Draw rectangle
+        rect = mpatches.Rectangle(
+            (x, y), w, h,
+            linewidth=2,
+            edgecolor='black',
+            facecolor=color,
+            alpha=0.7
+        )
+        ax.add_patch(rect)
+        
+        # Add room label
+        center_x = x + w / 2
+        center_y = y + h / 2
+        
+        # Format room name
+        display_name = room_type.replace('_', ' ').title()
+        area = w * h
+        
+        ax.text(
+            center_x, center_y,
+            f'{display_name}\n{area:.1f}m²',
+            ha='center', va='center',
+            fontsize=9,
+            fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8, edgecolor='none')
+        )
+        
+        # Add to legend if not seen
+        if room_type not in room_types_seen:
+            legend_elements.append(
+                mpatches.Patch(facecolor=color, edgecolor='black', label=display_name)
+            )
+            room_types_seen.add(room_type)
+    
+    # Add grid
+    ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+    ax.set_axisbelow(True)
+    
+    # Add scale reference
+    scale_length = 5  # 5 meters
+    scale_x = min_x - padding + 1
+    scale_y = min_y - padding + 0.5
+    ax.plot([scale_x, scale_x + scale_length], [scale_y, scale_y], 'k-', linewidth=3)
+    ax.plot([scale_x, scale_x], [scale_y - 0.2, scale_y + 0.2], 'k-', linewidth=2)
+    ax.plot([scale_x + scale_length, scale_x + scale_length], [scale_y - 0.2, scale_y + 0.2], 'k-', linewidth=2)
+    ax.text(scale_x + scale_length/2, scale_y - 0.7, f'{scale_length}m', ha='center', fontsize=10, fontweight='bold')
+    
+    # Labels and title
+    ax.set_xlabel('Width (meters)', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Height (meters)', fontsize=12, fontweight='bold')
+    ax.set_title('Generated Floor Plan Layout', fontsize=14, fontweight='bold', pad=20)
+    
+    # Legend
+    if legend_elements:
+        ax.legend(
+            handles=legend_elements,
+            loc='upper left',
+            bbox_to_anchor=(1.02, 1),
+            fontsize=10,
+            title='Room Types',
+            title_fontsize=11,
+            framealpha=0.9
+        )
+    
+    ax.set_aspect('equal')
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.close()
+
+
 def main():
     # Header
     st.markdown('<p class="main-header">🏠 CADlingo</p>', unsafe_allow_html=True)
@@ -104,7 +244,7 @@ def main():
     
     # Sidebar
     with st.sidebar:
-        st.image("https://via.placeholder.com/300x100/1f77b4/ffffff?text=CADlingo", use_container_width=True)
+        st.image("https://via.placeholder.com/300x100/1f77b4/ffffff?text=CADlingo", width=300)
         
         st.header("About")
         st.info(
@@ -176,7 +316,7 @@ def main():
             """)
         
         # Generate button
-        generate_button = st.button("Generate Floor Plan", use_container_width=True)
+        generate_button = st.button("Generate Floor Plan")
     
     with col2:
         st.header("Generated Output")
@@ -233,11 +373,62 @@ def main():
                 dxf_file = output_dir / "generated_floor_plan.dxf"
                 
                 try:
-                    # Generate visualization
-                    generator.visualize_floor_plan(code, str(vis_file))
+                    # Generate enhanced visualization
+                    create_enhanced_visualization(code, str(vis_file))
                     
                     st.subheader("Visual Preview")
-                    st.image(str(vis_file), use_container_width=True)
+                    st.image(str(vis_file))
+                    
+                    # Add validation report
+                    st.subheader("Quality Assessment")
+                    validator = GeometricValidator()
+                    
+                    # Parse rooms from code for validation
+                    import re
+                    rect_pattern = r'RECT\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+"([^"]+)"'
+                    room_matches = re.findall(rect_pattern, code)
+                    
+                    parsed_rooms = []
+                    for x, y, w, h, room_type in room_matches:
+                        x, y, w, h = float(x), float(y), float(w), float(h)
+                        parsed_rooms.append({
+                            'type': room_type,
+                            'center': (x + w/2, y + h/2),
+                            'width': w,
+                            'height': h,
+                            'area': w * h
+                        })
+                    
+                    if parsed_rooms:
+                        validation_report = validator.validate_floor_plan(parsed_rooms)
+                        
+                        col_q1, col_q2, col_q3 = st.columns(3)
+                        
+                        with col_q1:
+                            st.metric(
+                                "Overall Quality",
+                                f"{validation_report['overall_score']:.1f}%",
+                                delta="Valid" if validation_report['is_valid'] else "Needs Review"
+                            )
+                        
+                        with col_q2:
+                            st.metric(
+                                "Room Count",
+                                validation_report['total_rooms'],
+                                delta=f"{validation_report['valid_rooms']} valid"
+                            )
+                        
+                        with col_q3:
+                            overlap_status = "✓ No overlaps" if validation_report['overlap_count'] == 0 else f"⚠ {validation_report['overlap_count']} overlaps"
+                            st.metric(
+                                "Layout Check",
+                                overlap_status
+                            )
+                        
+                        if validation_report['issues']:
+                            with st.expander("View Validation Issues"):
+                                for issue in validation_report['issues']:
+                                    st.warning(issue)
                     
                     # Generate DXF
                     status_text.text("Creating DXF file...")
@@ -256,8 +447,7 @@ def main():
                                 label="Download DXF File",
                                 data=f,
                                 file_name="floor_plan.dxf",
-                                mime="application/dxf",
-                                use_container_width=True
+                                mime="application/dxf"
                             )
                     
                     with col_d2:
@@ -266,8 +456,7 @@ def main():
                             label="Download Code (TXT)",
                             data=code,
                             file_name="autocad_code.txt",
-                            mime="text/plain",
-                            use_container_width=True
+                            mime="text/plain"
                         )
                     
                     status_text.empty()

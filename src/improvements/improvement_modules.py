@@ -306,6 +306,152 @@ class GeometricMetrics:
         return max(0, score), issues
 
 
+class AutomatedEvaluator:
+    """
+    Automated evaluation module that measures geometric consistency alongside BLEU.
+    
+    Combines:
+    - BLEU score (text similarity)
+    - Geometric metrics (IoU, room count, adjacency, plausibility)
+    - Validation results
+    
+    Provides comprehensive quality assessment for generated floor plans.
+    """
+    
+    def __init__(self):
+        self.validator = GeometricValidator()
+        self.metrics = GeometricMetrics()
+    
+    def evaluate_prediction(self, predicted_code: str, reference_code: str,
+                          predicted_rooms: List[Dict], reference_rooms: List[Dict]) -> Dict:
+        """
+        Comprehensive evaluation of a single prediction.
+        
+        Args:
+            predicted_code: Generated AutoCAD code
+            reference_code: Ground truth AutoCAD code
+            predicted_rooms: Parsed predicted room structures
+            reference_rooms: Parsed reference room structures
+            
+        Returns:
+            Dictionary with all evaluation metrics
+        """
+        # Geometric metrics
+        iou = self.metrics.compute_iou(predicted_rooms, reference_rooms)
+        
+        room_count_acc = self.metrics.room_count_accuracy(
+            len(predicted_rooms), len(reference_rooms)
+        )
+        
+        pred_types = [r.get('type', 'unknown') for r in predicted_rooms]
+        ref_types = [r.get('type', 'unknown') for r in reference_rooms]
+        type_acc = self.metrics.room_type_accuracy(pred_types, ref_types)
+        
+        adjacency_acc = self.metrics.adjacency_accuracy(predicted_rooms, reference_rooms)
+        
+        plausibility_score, plausibility_issues = self.metrics.layout_plausibility(predicted_rooms)
+        
+        # Validation
+        validation_report = self.validator.validate_floor_plan(predicted_rooms)
+        
+        # Combined score
+        geometric_score = (iou * 100 + room_count_acc * 100 + 
+                          type_acc * 100 + adjacency_acc * 100 + plausibility_score) / 5
+        
+        return {
+            'geometric_metrics': {
+                'iou': iou,
+                'room_count_accuracy': room_count_acc,
+                'room_type_accuracy': type_acc,
+                'adjacency_accuracy': adjacency_acc,
+                'plausibility_score': plausibility_score / 100,
+                'plausibility_issues': plausibility_issues
+            },
+            'validation': validation_report,
+            'scores': {
+                'geometric_score': geometric_score,
+                'validation_score': validation_report['overall_score'],
+                'combined_score': (geometric_score + validation_report['overall_score']) / 2
+            },
+            'room_counts': {
+                'predicted': len(predicted_rooms),
+                'reference': len(reference_rooms),
+                'difference': abs(len(predicted_rooms) - len(reference_rooms))
+            }
+        }
+    
+    def evaluate_batch(self, predictions: List[Dict], references: List[Dict]) -> Dict:
+        """
+        Evaluate multiple predictions and aggregate metrics.
+        
+        Args:
+            predictions: List of {'code': str, 'rooms': List[Dict]}
+            references: List of {'code': str, 'rooms': List[Dict]}
+            
+        Returns:
+            Aggregated evaluation report
+        """
+        all_metrics = []
+        
+        for pred, ref in zip(predictions, references):
+            metrics = self.evaluate_prediction(
+                pred['code'], ref['code'],
+                pred['rooms'], ref['rooms']
+            )
+            all_metrics.append(metrics)
+        
+        # Aggregate
+        avg_iou = np.mean([m['geometric_metrics']['iou'] for m in all_metrics])
+        avg_room_count_acc = np.mean([m['geometric_metrics']['room_count_accuracy'] for m in all_metrics])
+        avg_type_acc = np.mean([m['geometric_metrics']['room_type_accuracy'] for m in all_metrics])
+        avg_adjacency = np.mean([m['geometric_metrics']['adjacency_accuracy'] for m in all_metrics])
+        avg_plausibility = np.mean([m['geometric_metrics']['plausibility_score'] for m in all_metrics])
+        avg_validation = np.mean([m['scores']['validation_score'] for m in all_metrics])
+        avg_combined = np.mean([m['scores']['combined_score'] for m in all_metrics])
+        
+        return {
+            'summary': {
+                'total_samples': len(all_metrics),
+                'avg_iou': avg_iou,
+                'avg_room_count_accuracy': avg_room_count_acc,
+                'avg_room_type_accuracy': avg_type_acc,
+                'avg_adjacency_accuracy': avg_adjacency,
+                'avg_plausibility': avg_plausibility,
+                'avg_validation_score': avg_validation,
+                'avg_combined_score': avg_combined
+            },
+            'detailed_results': all_metrics
+        }
+    
+    def generate_report(self, evaluation_results: Dict) -> str:
+        """Generate human-readable evaluation report."""
+        summary = evaluation_results['summary']
+        
+        report = f"""
+{'='*80}
+CADLINGO AUTOMATED EVALUATION REPORT
+{'='*80}
+
+Total Samples Evaluated: {summary['total_samples']}
+
+GEOMETRIC METRICS:
+  IoU (Layout Overlap):          {summary['avg_iou']:.3f}  ({summary['avg_iou']*100:.1f}%)
+  Room Count Accuracy:           {summary['avg_room_count_accuracy']:.3f}  ({summary['avg_room_count_accuracy']*100:.1f}%)
+  Room Type Accuracy:            {summary['avg_room_type_accuracy']:.3f}  ({summary['avg_room_type_accuracy']*100:.1f}%)
+  Adjacency Accuracy:            {summary['avg_adjacency_accuracy']:.3f}  ({summary['avg_adjacency_accuracy']*100:.1f}%)
+  Layout Plausibility:           {summary['avg_plausibility']:.3f}  ({summary['avg_plausibility']*100:.1f}%)
+
+VALIDATION:
+  Average Validation Score:      {summary['avg_validation_score']:.1f}%
+
+OVERALL:
+  Combined Quality Score:        {summary['avg_combined_score']:.1f}%
+
+{'='*80}
+"""
+        return report
+
+
 if __name__ == "__main__":
     # Example usage
     validator = GeometricValidator()
