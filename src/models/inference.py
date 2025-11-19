@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Tuple
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from transformers import T5ForConditionalGeneration, RobertaTokenizer
+from geometric_validator import GeometricValidator, GeometricMetrics
 
 
 class CADGenerator:
@@ -28,13 +29,14 @@ class CADGenerator:
     Generates AutoCAD code and DXF files from text descriptions.
     """
     
-    def __init__(self, model_path: str = None, device: str = None):
+    def __init__(self, model_path: str = None, device: str = None, enable_validation: bool = True):
         """
         Initialize CAD generator.
         
         Args:
             model_path: Path to trained model checkpoint (default: best_model)
             device: 'cuda' or 'cpu' (auto-detect if None)
+            enable_validation: Whether to enable geometric validation (default: True)
         """
         # Setup device
         if device is None:
@@ -60,7 +62,15 @@ class CADGenerator:
         self.model.to(self.device)
         self.model.eval()
         
+        # Initialize geometric validator
+        self.enable_validation = enable_validation
+        if self.enable_validation:
+            self.validator = GeometricValidator()
+            self.metrics = GeometricMetrics()
+        
         print(f"Model loaded successfully on {self.device}")
+        if self.enable_validation:
+            print("Geometric validation: ENABLED")
     
     def generate_code(
         self,
@@ -109,6 +119,74 @@ class CADGenerator:
         generated_code = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
         
         return generated_code
+    
+    def generate_with_validation(
+        self,
+        description: str,
+        max_length: int = 512,
+        num_beams: int = 4,
+        temperature: float = 1.0
+    ) -> Tuple[str, Dict]:
+        """
+        Generate AutoCAD code with geometric validation.
+        
+        Args:
+            description: Natural language description of floor plan
+            max_length: Maximum length of generated code
+            num_beams: Number of beams for beam search
+            temperature: Sampling temperature
+            
+        Returns:
+            Tuple of (generated_code, validation_report)
+        """
+        code = self.generate_code(description, max_length, num_beams, temperature)
+        
+        if not self.enable_validation:
+            return code, {'validation_enabled': False}
+        
+        # Parse code into rooms
+        elements = self.parse_code_to_elements(code)
+        rooms = self._extract_rooms_from_elements(elements)
+        
+        # Validate floor plan
+        validation_report = self.validator.validate_floor_plan(rooms)
+        
+        # Compute geometric metrics
+        if rooms:
+            metrics = {
+                'room_count': len(rooms),
+                'room_types': [r.get('type', 'unknown') for r in rooms],
+                'avg_room_area': np.mean([r.get('width', 0) * r.get('height', 0) for r in rooms]) if rooms else 0
+            }
+            validation_report['metrics'] = metrics
+        
+        return code, validation_report
+    
+    def _extract_rooms_from_elements(self, elements: Dict[str, List]) -> List[Dict]:
+        """
+        Extract room information from parsed elements.
+        
+        Args:
+            elements: Parsed code elements from parse_code_to_elements
+            
+        Returns:
+            List of room dictionaries
+        """
+        rooms = []
+        for rect in elements.get('rectangles', []):
+            x1, y1 = rect['x1'], rect['y1']
+            x2, y2 = rect['x2'], rect['y2']
+            
+            room = {
+                'type': rect['label'].lower() if rect['label'] else 'unknown',
+                'center': ((x1 + x2) / 2, (y1 + y2) / 2),
+                'width': abs(x2 - x1),
+                'height': abs(y2 - y1),
+                'area': abs((x2 - x1) * (y2 - y1))
+            }
+            rooms.append(room)
+        
+        return rooms
     
     def parse_code_to_elements(self, code: str) -> Dict[str, List]:
         """
